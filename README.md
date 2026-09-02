@@ -1,22 +1,29 @@
 # Scrapost contracts
 
-Scrapostのユースケース間で共有する値を定義します。このディレクトリの定義は外部リソースへアクセスしません。
+Scrapostのユースケース間で共有するPython契約と確定済みリソース設計を定義します。このディレクトリの定義は外部リソースへアクセスしません。
+
+## ディレクトリ
+
+- `src/`: Pythonで参照する契約値
+- `designs/`: 複数ユースケースで共有する確定済みYAML設計
+- `tests/`: Python契約のテスト
+- `__init__.py`: 既存利用側向けの公開API
 
 ## 定義
 
-- `lifecycle.py`
+- `src/lifecycle.py`
   - 無課金時の認証期間: 3日+12時間（ミリ秒）
   - 課金後の認証期間: 10日+12時間（ミリ秒）
   - リソースの原則削除期間: 10日+12時間（ミリ秒）
   - S3の原則削除日数: 11日
   - `all`アクセストークンの絶対有効期間: 12時間（ミリ秒）
   - `all`アクセストークンの非アクティブ失効期間: 3時間（ミリ秒）
-- `fields.py`
+- `src/fields.py`
   - DynamoDB TTL属性名: `ttl_expires_at`
-- `access.py`
+- `src/access.py`
   - アクセス権限: `read`, `post`, `all`
   - アカウント作成時に発行する権限: `read`, `post`
-- `location.py`
+- `src/location.py`
   - 位置情報利用モード: `off`, `on`
 
 DynamoDB TTLへ保存するときは、作成日時（UNIXTIMEミリ秒）に対象期間を加算し、1000で除算したUNIXTIME秒を設定します。検証トークンなど、仕様で個別の短い期間が定められているリソースは例外です。
