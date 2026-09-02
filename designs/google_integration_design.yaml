@@ -1,0 +1,212 @@
+
+tables:
+  - description:
+    - Google連携時の処理状況等の保存
+
+  - resource: DynamoDB
+    table_name: GoogleOAuthStates
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: state
+        type: S
+        descriptions:
+          - 'Google認証認可時に生成したstate'
+          - 'リダイレクト時に一致するか確認するために保存しておく'
+        pk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID'
+          - '遷移中に使うので account_id を使う'
+          - 'localStorage.{account_id} に諸々保存してあるので account_id で処理は継続可能'
+      - name: thread_id
+        type: S
+        descriptions:
+          - 'スレッドID'
+          - '遷移中に使うので thread_id を使う'
+          - 'localStorage.{thread_id} に諸々保存してあるので thread_id で処理は継続可能'
+      - name: client_instance_id
+        type: S
+        descriptions:
+          - 'Google Photos連携を開始したクライアントインスタンスID'
+      - name: backup_id
+        type: S
+        descriptions:
+          - 'GooglePhotoBackupsを特定する{thread_id}#{client_instance_id}'
+      - name: redirect_path
+        type: S
+        descriptions:
+          - 'Google OAuth認可後に遷移する許可済み固定パス'
+          - '/html/g008/google_photo_redirect.html または /html/g009/google_doc_redirect.html'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+          - '１時間後に自動削除されるようにする'
+          - '写真バックアップ、docx取り込みのLambda処理時間を考慮して寿命を決める'
+
+  - resource: DynamoDB
+    table_name: GooglePhotoBackups
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: backup_id
+        type: S
+        descriptions:
+          - 'パーティションキー'
+          - '{thread_id}#{client_instance_id} の形式'
+        pk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID。PostInstancesの取得に使用する'
+      - name: thread_id
+        type: S
+        descriptions:
+          - 'スレッドID。backup_idの構成要素'
+      - name: client_instance_id
+        type: S
+        descriptions:
+          - 'クライアントインスタンスID。backup_idの構成要素'
+      - name: album_name
+        type: S
+        descriptions:
+          - '作成時に指定したアルバム名'
+      - name: auth_state
+        type: S
+        descriptions:
+          - 'Google認証認可時に生成したstate'
+          - 'リダイレクト時に一致するか確認するために保存しておく'
+      - name: auth_code
+        type: S
+        descriptions:
+          - 'Google認証認可時にリダイレクトで返却されるcode'
+          - 'GooglePhotoBackupのバックアップ処理開始時に利用するために保存しておく'
+      - name: album_id
+        type: S
+        descriptions:
+          - '作成されたアルバムのID'
+      - name: status
+        type: S
+        descriptions:
+          - 'バックアップのステータス'
+          - 'pending: バックアップ開始前'
+          - 'in_progress: バックアップ中'
+          - 'completed: バックアップ完了'
+          - 'failed: バックアップ中にエラーが発生した'
+      - name: error_message
+        type: S
+        descriptions:
+          - 'バックアップ中にエラーが発生した場合のエラーメッセージ'
+      - name: total_photos
+        type: N
+        descriptions:
+          - 'バックアップ対象の総写真数'
+      - name: backed_up_photos
+        type: N
+        descriptions:
+          - 'バックアップ済みの写真数'
+      - name: failed_photos
+        type: N
+        descriptions:
+          - 'バックアップに失敗した写真数'
+      - name: last_completed_image_key
+        type: S
+        descriptions:
+          - 'バックアップが完了した最後の画像のキー'
+      - name: execute_count
+        type: N
+        descriptions:
+          - 'バックアップ処理の実行回数'
+          - 'completedまたはfailedのステータスになった場合にインクリメントされる'
+      - name: started_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: GoogleDocumentBackups
+    description:
+      - 'Googleドキュメントのバックアップ処理状況を保存する'
+      - 'docx をアップロードするだけなので枚数的な進捗は無い'
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: backup_id
+        type: S
+        descriptions:
+          - 'パーティションキー'
+          - '{thread_id}#{client_instance_id} の形式'
+        pk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID'
+      - name: thread_id
+        type: S
+        descriptions:
+          - 'スレッドID。backup_idの構成要素'
+      - name: client_instance_id
+        type: S
+        descriptions:
+          - 'クライアントインスタンスID。backup_idの構成要素'
+      - name: title
+        type: S
+        descriptions:
+          - 'ドキュメントタイトル'
+      - name: auth_code
+        type: S
+        descriptions:
+          - 'Google認証認可時にリダイレクトで返却されるcode'
+          - 'GooglePhotoBackupのバックアップ処理開始時に利用するために保存しておく'
+      - name: status
+        type: S
+        descriptions:
+          - 'バックアップのステータス'
+          - 'pending: バックアップ開始前'
+          - 'in_progress: バックアップ中'
+          - 'completed: バックアップ完了'
+          - 'failed: バックアップ中にエラーが発生した'
+      - name: error_message
+        type: S
+        descriptions:
+          - 'バックアップ中にエラーが発生した場合のエラーメッセージ'
+      - name: execute_count
+        type: N
+        descriptions:
+          - 'バックアップ処理の実行回数'
+          - 'completedまたはfailedのステータスになった場合にインクリメントされる'
+      - name: started_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'

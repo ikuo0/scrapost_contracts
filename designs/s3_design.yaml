@@ -1,0 +1,77 @@
+s3bucket:
+  dev:
+    - logical_name: webpage
+      resource: S3
+      bucket_name: scrapost-webpage-dev-ih7rbmtt
+      descriptions:
+        - scrapost のWEBページをS3に置くことで、CloudFront経由で配信する
+        - CloudFrontのキャッシュを効かせるため、HTML/CSS/JSはS3に置くことが前提となる
+      settings:
+        descriptions:
+          - CloudFrontを使うので非パブリックとしS3の公開設定は使わない
+
+    - logical_name: post_data
+      resource: S3
+      bucket_name: scrapost-post-data-dev-9iae46bp
+      application_reference:
+        env_var: POST_DATA_BUCKET_NAME
+      descriptions:
+        - 画像等、大きいサイズのデータを格納する
+      settings:
+        descriptions:
+          - Lambda経由で読み書きするため、非パブリックとしS3の公開設定は使わない
+        lifecycle_rules:
+          - 12日経過後に自動削除する
+          - 12日経過後に Glacier に移行する設定はしない（Glacierは復元に時間がかかるため、ユーザーがすぐにダウンロードできなくなる）
+
+    - logical_name: legal_documents
+      resource: S3
+      bucket_name: scrapost-legal-documents-w5ma4cep
+      application_reference:
+        env_var: LEGAL_DOCUMENTS_BUCKET_NAME
+      shared_with: prod
+      descriptions:
+        - 特定商取引法に基づく表記などの告知書類を格納する
+        - dev, prod 共通で利用する
+      settings:
+        descriptions:
+          - 公開設定とし、いつでも誰でも読めるようにする
+
+  prod:
+    - logical_name: webpage
+      resource: S3
+      bucket_name: scrapost-webpage-prod-s9edokbk
+      descriptions:
+        - scrapost のWEBページをS3に置くことで、CloudFront経由で配信する
+        - CloudFrontのキャッシュを効かせるため、HTML/CSS/JSはS3に置くことが前提となる
+      settings:
+        descriptions:
+          - CloudFrontを使うので非パブリックとしS3の公開設定は使わない
+
+    - logical_name: post_data
+      resource: S3
+      bucket_name: scrapost-post-data-prod-f6hsrac8
+      application_reference:
+        env_var: POST_DATA_BUCKET_NAME
+      descriptions:
+        - 画像等、大きいサイズのデータを格納する
+      settings:
+        descriptions:
+          - Lambda経由で読み書きするため、非パブリックとしS3の公開設定は使わない
+        lifecycle_rules:
+          - 12日経過後に自動削除する
+          - 12日経過後に Glacier に移行する設定はしない（Glacierは復元に時間がかかるため、ユーザーがすぐにダウンロードできなくなる）
+
+    - logical_name: legal_documents
+      resource: S3
+      bucket_name: scrapost-legal-documents-w5ma4cep
+      application_reference:
+        env_var: LEGAL_DOCUMENTS_BUCKET_NAME
+      shared_with: dev
+      descriptions:
+        - dev と同じなのは仕様です。　複数準備する必要が無いためdev環境の物を本番としています
+        - 特定商取引法に基づく表記などの告知書類を格納する
+        - dev, prod 共通で利用する
+      settings:
+        descriptions:
+          - 公開設定とし、いつでも誰でも読めるようにする

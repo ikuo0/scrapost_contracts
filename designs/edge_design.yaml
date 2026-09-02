@@ -1,0 +1,70 @@
+edge:
+  dev:
+    proxy:
+      resource: CloudFront
+      id: E3X2FJ4B28D5D
+      distribution_domain_name: dzcd78yr1dddw.cloudfront.net
+      attachment: scrapost-webpage-dev-ih7rbmtt
+      arn: arn:aws:cloudfront::019051664161:distribution/E3X2FJ4B28D5D
+
+    domain:
+      resource: Route53
+      domain_name: scrapost-dev.com
+      cloudfront_domain_name: dzcd78yr1dddw.cloudfront.net
+      descriptions:
+        - CloudFrontのディストリビューションに紐づける
+      settings:
+        descriptions:
+          - CloudFrontのディストリビューションに紐づけるため、Route53のAレコードを作成する
+
+    certificate: {}
+
+  prod:
+    proxy:
+      resource: CloudFront
+      id: E22GGKJLBCQC9C
+      distribution_domain_name: d17nalzxxvyuhj.cloudfront.net
+      attachment: scrapost-webpage-prod-s9edokbk
+      arn: arn:aws:cloudfront::288229084969:distribution/E22GGKJLBCQC9C
+      settings:
+        descriptions:
+          - CloudFrontのディストリビューションを作成する
+          - $0 のプランを選択
+          - Single website or app を選択（デフォルト）
+          - Use an existing S3 bucket を選択し、scrapost-webpage-prod-s9edokbk を指定
+          - S3の公開設定は使わないので、CloudFrontのオリジンアクセスアイデンティティを作成し、S3バケットポリシーに追加する
+          - CloudFrontのキャッシュを効かせるため、HTML/CSS/JSはS3に置くことが前提となる
+      post_route53_acm_steps:
+        - 該当 Route53 でレコード作成をクリック
+        - レコード名は空
+        - レコードタイプは A
+        - 該当Cloudfrontを選択、Add domain をクリック
+        - Domains to serve に scrapost.app を入力
+
+    domain:
+      resource: Route53
+      domain_name: scrapost.app
+      descriptions:
+        - CloudFrontのディストリビューションに紐づける
+        - .com は取れなかった
+      settings:
+        descriptions:
+          - CloudFrontのディストリビューションに紐づけるため、Route53のAレコードを作成する
+      notes:
+        - prod はまだ作ってない
+
+    certificate:
+      resource: ACM
+      domain_name: scrapost.app
+      identifier: 81efcb61-ce7b-4460-b2f5-ba974103f7d9
+      arn: arn:aws:acm:us-east-1:288229084969:certificate/81efcb61-ce7b-4460-b2f5-ba974103f7d9
+      descriptions:
+        - CloudFrontのディストリビューションに紐づけるための証明書を発行する
+      settings:
+        notes:
+          - us-east-1 で取得すること
+          - ドメイン名: scrapost.app
+          - DNS 検証 - 推奨（デフォルト）
+          - RSA 2048（デフォルト）
+          - 保留中 となる
+          - メールからリンク検証を実施

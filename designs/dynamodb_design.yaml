@@ -1,0 +1,716 @@
+tables:
+  - resource: DynamoDB
+    table_name: VerifyTokens
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: token
+        type: S
+        descriptions:
+          - '検証トークン文字列'
+        pk: true
+      - name: email
+        type: S
+        descriptions:
+          - 'メールアドレス'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: AccountUpgradeVerifications
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    descriptions:
+      - '仮アカウントをメールアドレス連携済みアカウントへ切り替えるための検証情報を保存する'
+      - '再発行時は新しいレコードを作成し、有効期限内の複数の検証トークンを許容する'
+    fields:
+      - name: token
+        type: S
+        descriptions:
+          - '検証トークン文字列'
+        pk: true
+      - name: email
+        type: S
+        descriptions:
+          - '連携するメールアドレス'
+      - name: account_id
+        type: S
+        descriptions:
+          - '切り替え対象の仮アカウントID文字列'
+      - name: status
+        type: S
+        descriptions:
+          - '検証状態（pending, completed）'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: completed_at
+        type: N
+        descriptions:
+          - 'アカウント切り替え完了日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '検証情報の有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: Accounts
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID文字列'
+        pk: true
+      - name: thread_id
+        type: S
+        descriptions:
+          - '投稿スレッドID文字列'
+      - name: email
+        type: S
+        descriptions:
+          - 'メールアドレス'
+      - name: title
+        type: S
+        descriptions:
+          - 'アカウントタイトル（例：202602 北海道旅行）'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+      - name: config_json
+        type: S
+        descriptions:
+          - 'アカウント設定情報をJSON化して保存（例：{"theme": "dark", "language": "ja", "location_mode": "off|on"}）'
+      - name: post_count
+        type: N
+        descriptions:
+          - '投稿件数'
+          - '投稿があるたびにインクリメントされる'
+          - '厳密な管理はしない。アトミックカウンタまではやらず、複数人が一気に書き込んだ時にズレるのは許容する'
+      - name: view_count
+        type: N
+        descriptions:
+          - '閲覧件数'
+          - '閲覧があるたびにインクリメントされる'
+          - '厳密な管理はしない。アトミックカウンタまではやらず、複数人が一気に書き込んだ時にズレるのは許容する'
+      - name: last_post_at
+        type: N
+        descriptions:
+          - '最終投稿日時のUNIXTIME(ms)'
+          - '投稿保存成功時に当該投稿の created_at を設定する'
+      - name: last_signin_at
+        type: N
+        descriptions:
+          - '最終サインイン日時のUNIXTIME(ms)'
+      - name: is_paid
+        type: BOOL
+        descriptions:
+          - '課金済みかどうか'
+      - name: demo
+        type: BOOL
+        descriptions:
+          - 'デモンストレーション用アカウントかどうか'
+          - 'true の場合は利用停止処理で削除せず、固定 all トークンの非アクティブ失効を適用しない'
+
+  - resource: DynamoDB
+    table_name: PaymentLogs
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    descriptions:
+      - ログは追記専用とし、既存レコードを後から更新しない
+      - 1回のAPI呼び出し、Webhook受信、画面操作など、1アクションにつき1レコードを追加する
+    fields:
+      - name: payment_id
+        type: S
+        descriptions:
+          - '支払いID文字列'
+        pk: true
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+          - '1アクションにつき1レコードを追加するため、同一payment_id内のイベント識別にも使用する'
+        sk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID文字列'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+          - '課金情報は重要そうなので２年残す（UNIXTIME(s)で計算）'
+      - name: phase_name
+        type: S
+        descriptions:
+          - '課金処理のフェーズ名（例：start, click_checkout_session, trigger_webhook, normal_end, error_end, normal_complete）'
+      - name: payment_method
+        type: S
+        descriptions:
+          - '課金方法（例：stripe）'
+      - name: stripe_payment_id
+        type: S
+        descriptions:
+          - '課金サービス側の課金ID文字列（例：StripeのPaymentIntent ID）'
+      - name: payment_info
+        type: M
+        descriptions:
+          - '入力、出力両方を保存する'
+          - 'inputキーは account_id, 変数の決済リンク, REFERER, User-Agent 等、決済に使用した情報をできるだけ全て保存する'
+          - 'outputキーは 課金ID, ステータス, 金額, 画面に出力した決済リンク、こちらから出力した物をできるだけ保存'
+
+  - resource: DynamoDB
+    table_name: AccountPaymentLinks
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    descriptions:
+      - 通常は1アカウントにつき1回の支払いだが、途中エラーからの再実行に備えて複数のpayment_idを保持する
+      - account_id から PaymentLogs.payment_id を特定するためのテーブル
+      - account_idで列挙し、created_atが最も新しいレコードのpayment_idを現在の支払いIDとして採用する
+    fields:
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID文字列'
+        pk: true
+      - name: payment_id
+        type: S
+        descriptions:
+          - '支払いID文字列'
+        sk: true
+      - name: created_at
+        type: N
+        descriptions:
+          - '支払い開始日時のUNIXTIME(ms)、最新payment_idの判定に使用する'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)、作成日時から2年後を設定する'
+
+  - resource: DynamoDB
+    table_name: AccountCreationLogs
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    descriptions:
+      - アカウント発行の記録を残すことで、短時間に複数アカウントを作成されることを防ぐ
+      - 保存期間は６時間
+    fields:
+      - name: email
+        type: S
+        descriptions:
+          - 'メールアドレス'
+        pk: true
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: PostInstances
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID文字列'
+        pk: true
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+        sk: true
+      - name: manual_entry
+        type: BOOL
+        descriptions:
+          - '挿入等の特殊操作で作成されたデータの場合にこのフラグを true にする。通常投稿は false のまま'
+      - name: update_status
+        type: S
+        descriptions:
+          - '更新処理の状態を示す文字列'
+          - 'none=通常、updating=更新中、updated=更新済み, error=更新失敗'
+          - 'バッチ処理、長いUIからの処理等、複合処理による更新作業で利用する'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: client_instance_id
+        type: S
+        descriptions:
+          - '投稿クライアント側で生成した一意のID文字列、同一人物特定に使用する、差分計算時に同一人物差分を取りたいので'
+          - 'ブラウザ側で生成したUUIDを使うことを想定している'
+      - name: geo_payload
+        type: S
+        descriptions:
+          - 'GPS情報をJSON化して保存（例：{"lat": 35.6895, "lon": 139.6917}）'
+      - name: geo_fetched
+        type: BOOL
+        descriptions:
+          - '地名取得済みフラグ。地名取得処理が完了したら true を保存する'
+      - name: address
+        type: M
+        descriptions:
+          - 'GPS情報から取得したジオコーディング結果辞書'
+      - name: location_name
+        type: S
+        descriptions:
+          - 'dictionary を結合して取得した場所名（例：東京都千代田区千代田1-1）'
+      - name: geodata_lookup_failed
+        type: BOOL
+        descriptions:
+          - '地名変換失敗フラグ。post関連で理由を問わず地名取得に失敗した場合は true を保存する'
+      - name: post_delta
+        type: M
+        descriptions:
+          - '一覧取得時にバックエンドで前の投稿からの移動、時間差分を保存する'
+          - 'distance_m=移動した距離(メートル小数点)'
+          - 'elapsed_ms=経過時間(ミリ秒)'
+          - 'direction_deg=移動した方向(度)'
+      - name: delta_calculated
+        type: BOOL
+        descriptions:
+          - 'post_delta が計算済みかどうかのフラグ。バックエンドで一覧取得時に計算済みなら true を保存する'
+      - name: body
+        type: S
+        descriptions:
+          - '投稿本文をJSON化して保存（例：{"type": "text", "value": "This is your first post instance."}）'
+          - 'type は text/image 等がある'
+          - '主要データサイズが大きい(画像等)、又は外部データ連携する場合に exkey? を使用して連携することがある'
+      - name: exkey1
+        type: S
+        descriptions:
+          - '別所にデータがある場合の連携キー'
+          - 'S3 や 時系列DB などの外部データを参照する場合に、外部データのキーを保存する'
+          - 'type=imageの場合、原寸画像のS3オブジェクトキー'
+      - name: exkey2
+        type: S
+        descriptions:
+          - 'exkey1 の補助キー'
+          - 'type=imageの場合、表示用画像のS3オブジェクトキー'
+      - name: exkey3
+        type: S
+        descriptions:
+          - 'exkey1 の補助キー'
+          - 'type=imageの場合、サムネイル画像のS3オブジェクトキー'
+      - name: exkey4
+        type: S
+        descriptions:
+          - 'exkey1 の補助キー'
+      - name: exkey5
+        type: S
+        descriptions:
+          - 'exkey1 の補助キー'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+          - 'アカウント(Accounts)と同様の期間が設定される'
+
+  - resource: DynamoDB
+    table_name: AccessTokens
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    descriptions:
+      - account_id に対する権限を検証する
+      - アクセストークンが存在すれば認証OK、紐づいている account_id に対応する PostInstances に投稿、閲覧等が可能
+      - アカウント発行時は read / post を作成する
+      - account_id サインイン成功時に all を毎回新規発行する
+      - all のTTLは12時間、3時間無操作で無効化する
+    fields:
+      - name: access_token
+        type: S
+        descriptions:
+          - 'アクセストークン文字列'
+        pk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID文字列'
+      - name: permission
+        type: S
+        descriptions:
+          - '権限文字列（全権限は all、 all は account_id を知る物にだけ発行される）'
+          - '閲覧のみ=read'
+          - '投稿、閲覧、編集=post'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: touch_at
+        type: N
+        descriptions:
+          - '最終アクセス日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: AccountAccessTokens
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    descriptions:
+      - 1アカウントにつき1権限1トークンだけを有効とする運用状態を追跡する
+      - 発行時に同一 account_id + permission を上書きすることで、常に最新の1件だけが残る状態を維持する
+      - アカウント発行時は read / post の2レコードを作成する
+      - account_id サインイン成功時は permission=all を毎回上書きする
+      - 書き込み順序は AccountAccessTokens を先、AccessTokens を後とする
+      - read / post の ttl_expires_at は Accounts.ttl_expires_at と同値にする
+      - all の ttl_expires_at は created_at + 12時間（秒換算）にする
+    fields:
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID文字列'
+        pk: true
+      - name: permission
+        type: S
+        descriptions:
+          - '権限文字列（all / read / post）'
+        sk: true
+      - name: access_token
+        type: S
+        descriptions:
+          - '現在有効として扱うアクセストークン文字列'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: touch_at
+        type: N
+        descriptions:
+          - '最終アクセス日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+          - 'permission=read/post は Accounts.ttl_expires_at と同値、permission=all は created_at + 12時間（秒換算）を設定する'
+
+  - resource: DynamoDB
+    table_name: geodata_mesh_1km
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: {}
+    descriptions:
+      - UCA900-UCB003で生成した1kmメッシュデータを保存する
+      - 主キーは mesh_id とし、同一 mesh_id は上書き保存される
+    fields:
+      - name: mesh_id
+        type: S
+        descriptions:
+          - 'メッシュID（形式: mesh1km-{mesh_code}）'
+        pk: true
+      - name: mesh_code
+        type: S
+        descriptions:
+          - 'JIS X 0410準拠の1km地域メッシュコード'
+      - name: mesh_size_m
+        type: N
+        descriptions:
+          - 'メッシュサイズ（固定値1000）'
+      - name: srid
+        type: N
+        descriptions:
+          - '座標系SRID（4326）'
+      - name: geom_wkt
+        type: S
+        descriptions:
+          - 'メッシュPolygonのWKT'
+      - name: min_lat
+        type: N
+        descriptions:
+          - 'メッシュ境界の最小緯度'
+      - name: max_lat
+        type: N
+        descriptions:
+          - 'メッシュ境界の最大緯度'
+      - name: min_lon
+        type: N
+        descriptions:
+          - 'メッシュ境界の最小経度'
+      - name: max_lon
+        type: N
+        descriptions:
+          - 'メッシュ境界の最大経度'
+      - name: point_count
+        type: N
+        descriptions:
+          - '当該メッシュに含まれるポイント件数'
+      - name: center_lat
+        type: N
+        descriptions:
+          - '代表点の緯度'
+      - name: center_lon
+        type: N
+        descriptions:
+          - '代表点の経度'
+      - name: center_name
+        type: S
+        descriptions:
+          - '代表点の地名'
+      - name: ignore_flag
+        type: N
+        descriptions:
+          - '除外フラグ（0=False, 1=True）'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+
+  - resource: DynamoDB
+    table_name: geodata_mesh_10km
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: {}
+    descriptions:
+      - UCA900-UCB003で生成した10kmメッシュデータを保存する
+      - 主キーは mesh_id とし、同一 mesh_id は上書き保存される
+    fields:
+      - name: mesh_id
+        type: S
+        descriptions:
+          - 'メッシュID（形式: mesh10km-{mesh_code}）'
+        pk: true
+      - name: mesh_code
+        type: S
+        descriptions:
+          - 'JIS X 0410準拠の10km地域メッシュコード'
+      - name: mesh_size_m
+        type: N
+        descriptions:
+          - 'メッシュサイズ（固定値10000）'
+      - name: srid
+        type: N
+        descriptions:
+          - '座標系SRID（4326）'
+      - name: geom_wkt
+        type: S
+        descriptions:
+          - 'メッシュPolygonのWKT'
+      - name: min_lat
+        type: N
+        descriptions:
+          - 'メッシュ境界の最小緯度'
+      - name: max_lat
+        type: N
+        descriptions:
+          - 'メッシュ境界の最大緯度'
+      - name: min_lon
+        type: N
+        descriptions:
+          - 'メッシュ境界の最小経度'
+      - name: max_lon
+        type: N
+        descriptions:
+          - 'メッシュ境界の最大経度'
+      - name: point_count
+        type: N
+        descriptions:
+          - '当該メッシュに含まれるポイント件数'
+      - name: center_lat
+        type: N
+        descriptions:
+          - '代表点の緯度'
+      - name: center_lon
+        type: N
+        descriptions:
+          - '代表点の経度'
+      - name: center_name
+        type: S
+        descriptions:
+          - '代表点の地名'
+      - name: ignore_flag
+        type: N
+        descriptions:
+          - '除外フラグ（0=False, 1=True）'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+
+  - resource: DynamoDB
+    table_name: PostExports
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: {}
+    descriptions:
+      - エクスポート情報を保存する
+      - 主キーは account_id とし、同一 account_id は上書き保存する
+      - uca050_ucb010 実行制御と状態参照に利用する
+    fields:
+      - name: account_id
+        type: S
+        descriptions:
+          - 'アカウントID文字列'
+        pk: true
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: background_color
+        type: S
+        descriptions:
+          - 'エクスポート成果物の背景色（例：#FFFFFF）'
+      - name: process_type
+        type: S
+        descriptions:
+          - 'エクスポート処理の種類（例：none, data, docx, pdf, complete）'
+          - 'どこで停止したか分かるように処理の種類を記録'
+      - name: process_status
+        type: S
+        descriptions:
+          - 'エクスポート処理の進捗状態（例：pending, processing, completed, failed, error, canceled）'
+      - name: raw_path
+        type: S
+        descriptions:
+          - 'エクスポート成果物のデータディレクトリS3パス（例：s3://scrapost-post-data-dev-9iae46bp/export/{thread_id}/raw/）' 
+      - name: docx_path
+        type: S
+        descriptions:
+          - 'エクスポート成果物のDOCXディレクトリS3パス（例：s3://scrapost-post-data-dev-9iae46bp/export/{thread_id}/docx/）'
+      - name: pdf_path
+        type: S
+        descriptions:
+          - 'エクスポート成果物のPDFディレクトリS3パス（例：s3://scrapost-post-data-dev-9iae46bp/export/{thread_id}/pdf/）'
+      - name: size_reports
+        type: M
+        descriptions:
+          - '{"raw_size": 123456, "docx_size": 234567, "pdf_size": 345678, "total_size": 703701}'
+      - name: started_at
+        type: N
+        descriptions:
+          - 'エクスポート処理開始日時のUNIXTIME(ms)、created_atと同等'
+      - name: completed_at
+        type: N
+        descriptions:
+          - 'エクスポート処理完了日時のUNIXTIME(ms)'
+      - name: error_at
+        type: N
+        descriptions:
+          - 'エラー発生日時のUNIXTIME(ms)'
+      - name: error_message
+        type: S
+        descriptions:
+          - '失敗時のエラーメッセージ'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+
+  - resource: DynamoDB
+    table_name: PublicComments
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    descriptions:
+      - パブリックコメントを保存する
+      - 3km圏内(1kmメッシュ3x3)のパブリックコメントをscrapost利用者は閲覧可能
+      - 削除、編集は無い
+    fields:
+      - name: mesh_id
+        type: S
+        descriptions:
+          - 'メッシュID（形式: mesh1km-{mesh_code}）'
+        pk: true
+      - name: origin_id
+        type: S
+        descriptions:
+          - '投稿のオリジンID（形式: {account_id}-{created_at}）'
+        sk: true
+      - name: created_at
+        type: N
+        descriptions:
+          - 'コメント作成日時のUNIXTIME(ms)'
+      - name: text
+        type: S
+        descriptions:
+          - 'コメント本文'
+      - name: image
+        type: S
+        descriptions:
+          - 'コメント画像のS3パス（例：s3://scrapost-post-data-dev-9iae46bp/public/{account_id}-{created_at}.jpg）'
+      - name: geo_payload
+        type: S
+        descriptions:
+          - 'GPS情報をJSON化して保存（例：{"lat": 35.6895, "lon": 139.6917}）'
+      - name: location_name
+        type: S
+        descriptions:
+          - 'GPS情報から取得した場所名（例：東京都千代田区千代田1）詳細な住所は出さない'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+          - '１年半で消える'

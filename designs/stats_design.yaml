@@ -1,0 +1,273 @@
+
+# - X001: 統計用ログ
+#   - A001: アカウント作成時のログ、pk=`{YYYYMMdd}`, sk=`{account_id}`、レコードタイプログ
+#   - A002: 操作ログ、pk=`{YYYYMMdd}`, sk=`{account_id}`、text, image, markdown, rakugaki, spreadsheet, downrightflow, view, export_pdf, export_data, token_refresh, account_delete の種類別に加算
+#   - A003: 位置情報に関するログ、pk=`{YYYYMMdd}`, sk=`{10km mesh id}`、加算タイプログ
+#   - A004: 課金に関するログ、pk=`{YYYYMMdd}`、sk=`{account_id}#{課金完了日時のUNIXTIME(ms)}`、レコードタイプログ
+#   - A005: 画像投稿数、画像サイズのログ、pk=`{YYYYMMdd}`, sk=`{account_id}`、加算タイプログ
+
+tables:
+  - description:
+    - 統計テーブルは全て２年間保存する
+
+  - resource: DynamoDB
+    table_name: StatsAccountCreate
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: yyyyMMdd
+        type: S
+        descriptions:
+          - 'パーティションキー'
+          - '日付(YYYYMMdd)で指定する'
+        pk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'ソートキー'
+          - 'アカウントID'
+        sk: true
+      - name: email_hash
+        type: S
+        descriptions:
+          - 'アカウント作成時のメールアドレスのSHA256ハッシュ'
+      - name: location_mode
+        type: S
+        descriptions:
+          - '作成時に選択した位置情報モード'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: StatsOperation
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: yyyyMMdd
+        type: S
+        descriptions:
+          - 'パーティションキー'
+          - '日付(YYYYMMdd)で指定する'
+        pk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'ソートキー'
+          - 'アカウントID'
+        sk: true
+      - name: post_text
+        type: N
+        descriptions:
+          - 'テキスト投稿数'
+      - name: post_image
+        type: N
+        descriptions:
+          - '画像投稿数'
+      - name: post_markdown
+        type: N
+        descriptions:
+          - 'Markdown投稿数'
+      - name: post_rakugaki
+        type: N
+        descriptions:
+          - '落書き投稿数'
+      - name: post_spreadsheet
+        type: N
+        descriptions:
+          - 'スプレッドシート投稿数'
+      - name: post_downrightflow
+        type: N
+        descriptions:
+          - 'DownrightFlow投稿数'
+      - name: view_count
+        type: N
+        descriptions:
+          - '閲覧数'
+      - name: export_data
+        type: N
+        descriptions:
+          - 'データエクスポート数'
+      - name: google_photo
+        type: N
+        descriptions:
+          - 'Google Photo連携の実行数。完了・エラーのどちらも1回として加算する'
+          - 'yyyyMMddはJST基準とし、account_idごとに1日50回を上限とする'
+      - name: google_doc
+        type: N
+        descriptions:
+          - 'Google Doc連携の実行数。完了・エラーのどちらも1回として加算する'
+          - 'yyyyMMddはJST基準とし、account_idごとに1日50回を上限とする'
+      - name: refresh_token
+        type: N
+        descriptions:
+          - 'トークン更新数'
+      - name: delete_account
+        type: N
+        descriptions:
+          - 'アカウント削除実行回数'
+          - '１回しかできないので回数である必要はないが、他に合わせる'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+
+  - resource: DynamoDB
+    table_name: StatsLocation
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: yyyyMMdd
+        type: S
+        descriptions:
+          - 'パーティションキー'
+        pk: true
+      - name: mesh_id_10km
+        type: S
+        descriptions:
+          - 'ソートキー'
+          - '10kmメッシュのID'
+        sk: true
+      - name: place_name
+        type: S
+        descriptions:
+          - '10kmメッシュの代表地名'
+      - name: count
+        type: N
+        descriptions:
+          - '投稿された緯度経度情報の件数'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+
+  - resource: DynamoDB
+    table_name: StatsBilling
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: yyyyMMdd
+        type: S
+        descriptions:
+          - 'パーティションキー'
+          - '日付(YYYYMMdd)で指定する'
+        pk: true
+      - name: 'account_id'
+        type: S
+        descriptions:
+          - 'ソートキー'
+          - 'アカウントID'
+          - 文字列は f"{account_id}#{billing_completed_at}" の形式で保存する
+        sk: true
+      - name: billing_completed_at
+        type: N
+        descriptions:
+          - '課金完了日時のUNIXTIME(ms)'
+      - name: billing_amount
+        type: N
+        descriptions:
+          - '課金額'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: StatsImagePosts
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: yyyyMMdd
+        type: S
+        descriptions:
+          - 'パーティションキー'
+          - '日付(YYYYMMdd)で指定する'
+        pk: true
+      - name: account_id
+        type: S
+        descriptions:
+          - 'ソートキー'
+          - 'アカウントID'
+        sk: true
+      - name: count
+        type: N
+        descriptions:
+          - '投稿された画像の件数'
+      - name: size_total
+        type: N
+        descriptions:
+          - '投稿された画像の合計サイズ(byte)'
+      - name: size_max
+        type: N
+        descriptions:
+          - '投稿された画像の最大サイズ(byte)'
+      - name: size_min
+        type: N
+        descriptions:
+          - '投稿された画像の最小サイズ(byte)'
+      - name: size_mean
+        type: N
+        descriptions:
+          - '投稿された画像の平均サイズ(byte)'
+      - name: created_at
+        type: N
+        descriptions:
+          - '作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
