@@ -271,3 +271,153 @@ tables:
         type: N
         descriptions:
           - '有効期限のUNIXTIME(s)'
+
+  - resource: DynamoDB
+    table_name: Stats
+    descriptions:
+      - '統計表示用の全日次集計値を保存する単一テーブル'
+      - 'pkの日付はJSTを基準とする'
+      - 'レコード種別に応じて必要な数値フィールドだけを保存する'
+      - '統計データは作成日から2年間保存する'
+    capacity:
+      mode: on_demand
+      read_capacity: null
+      write_capacity: null
+    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
+    fields:
+      - name: pk
+        type: S
+        descriptions:
+          - 'パーティションキー'
+          - 'JSTの日付をyyyyMMdd形式で保存する'
+        pk: true
+      - name: sk
+        type: S
+        descriptions:
+          - 'ソートキー'
+          - 'create_space、create_account、{thread_id}#operation、{thread_id}#image_stats、location#{10km mesh_id}等を保存する'
+        sk: true
+      - name: count
+        type: N
+        descriptions:
+          - '投稿スペース作成数、アカウント作成数、画像数、位置情報数等のレコード別カウンター'
+      - name: read
+        type: N
+        descriptions:
+          - '投稿閲覧回数'
+      - name: pin
+        type: N
+        descriptions:
+          - '位置ピンのみのテキスト投稿数'
+      - name: url
+        type: N
+        descriptions:
+          - 'URLのみのテキスト投稿数'
+      - name: text
+        type: N
+        descriptions:
+          - '通常テキスト投稿数'
+      - name: image
+        type: N
+        descriptions:
+          - '画像投稿数'
+      - name: rakugaki
+        type: N
+        descriptions:
+          - '落書き投稿数'
+      - name: markdown
+        type: N
+        descriptions:
+          - 'Markdown投稿数'
+      - name: spreadsheet
+        type: N
+        descriptions:
+          - 'スプレッドシート投稿数'
+      - name: flowchart
+        type: N
+        descriptions:
+          - 'フローチャート投稿数'
+      - name: post_total
+        type: N
+        descriptions:
+          - '全種類の投稿数'
+      - name: refresh_token
+        type: N
+        descriptions:
+          - 'リフレッシュトークン発行数'
+      - name: export
+        type: N
+        descriptions:
+          - 'エクスポート操作数'
+      - name: google_photo
+        type: N
+        descriptions:
+          - 'Googleフォト連携数'
+      - name: google_document
+        type: N
+        descriptions:
+          - 'Googleドキュメント連携数'
+      - name: delete_text
+        type: N
+        descriptions:
+          - 'テキスト削除数'
+      - name: delete_image
+        type: N
+        descriptions:
+          - '画像削除数'
+      - name: delete_account
+        type: N
+        descriptions:
+          - '利用停止数'
+      - name: delete_total
+        type: N
+        descriptions:
+          - 'テキストおよび画像の削除総数'
+      - name: size_total
+        type: N
+        descriptions:
+          - '投稿画像の合計サイズ(byte)'
+      - name: size_max
+        type: N
+        descriptions:
+          - '投稿画像の最大サイズ(byte)'
+      - name: size_min
+        type: N
+        descriptions:
+          - '投稿画像の最小サイズ(byte)'
+      - name: lat_sum
+        type: N
+        descriptions:
+          - '緯度の合計値'
+      - name: lat_max
+        type: N
+        descriptions:
+          - '緯度の最大値'
+      - name: lat_min
+        type: N
+        descriptions:
+          - '緯度の最小値'
+      - name: lon_sum
+        type: N
+        descriptions:
+          - '経度の合計値'
+      - name: lon_max
+        type: N
+        descriptions:
+          - '経度の最大値'
+      - name: lon_min
+        type: N
+        descriptions:
+          - '経度の最小値'
+      - name: created_at
+        type: N
+        descriptions:
+          - '初回作成日時のUNIXTIME(ms)'
+      - name: updated_at
+        type: N
+        descriptions:
+          - '最終更新日時のUNIXTIME(ms)'
+      - name: ttl_expires_at
+        type: N
+        descriptions:
+          - '有効期限のUNIXTIME(s)'
