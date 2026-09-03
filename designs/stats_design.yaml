@@ -1,53 +1,10 @@
 
 # - X001: 統計
-#   - A001: 課金統計
 #   - A002: SQS経由で集計する日次統計
 
 tables:
   - description:
     - 統計テーブルは全て２年間保存する
-
-  - resource: DynamoDB
-    table_name: StatsBilling
-    capacity:
-      mode: on_demand
-      read_capacity: null
-      write_capacity: null
-    ttl_spec: { attribute_name: ttl_expires_at, enabled: true }
-    fields:
-      - name: yyyyMMdd
-        type: S
-        descriptions:
-          - 'パーティションキー'
-          - '日付(YYYYMMdd)で指定する'
-        pk: true
-      - name: 'account_id'
-        type: S
-        descriptions:
-          - 'ソートキー'
-          - 'アカウントID'
-          - 文字列は f"{account_id}#{billing_completed_at}" の形式で保存する
-        sk: true
-      - name: billing_completed_at
-        type: N
-        descriptions:
-          - '課金完了日時のUNIXTIME(ms)'
-      - name: billing_amount
-        type: N
-        descriptions:
-          - '課金額'
-      - name: created_at
-        type: N
-        descriptions:
-          - '作成日時のUNIXTIME(ms)'
-      - name: updated_at
-        type: N
-        descriptions:
-          - '更新日時のUNIXTIME(ms)'
-      - name: ttl_expires_at
-        type: N
-        descriptions:
-          - '有効期限のUNIXTIME(s)'
 
   - resource: DynamoDB
     table_name: Stats
@@ -162,6 +119,10 @@ tables:
         type: N
         descriptions:
           - '投稿画像の最小サイズ(byte)'
+      - name: place_name
+        type: S
+        descriptions:
+          - '10kmメッシュの代表地名。location#{10km mesh id}レコードだけで使用する'
       - name: lat_sum
         type: N
         descriptions:
